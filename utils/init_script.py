@@ -39,7 +39,7 @@ def init_script(args):
         args.load_path,
         args.factor,
         args.lr,
-        args.num_freqs,
+        getattr(args, 'num_freqs', 0),
     )
 
     set_random_seeds(args.seed)

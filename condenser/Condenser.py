@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from utils.utils import update_feature_extractor
 from utils.ddp import gather_save_visualize, sync_distributed_metric
-from NCFM.NCFM import match_loss, cailb_loss, mutil_layer_match_loss, CFLossFunc
+from NCFM.NCFM import ppdd_loss
 from NCFM.SampleNet import SampleNet
 from utils.experiment_tracker import TimingTracker, get_time
 from data.dataset import TensorDataset
@@ -200,9 +200,7 @@ class Condenser:
             loader_real, args.class_list, args.batch_real, args.device
         )
         loader_syn = AsyncLoader(self, args.class_list, 100000, args.device)
-        args.cf_loss_func = CFLossFunc(
-            alpha_for_loss=args.alpha_for_loss, beta_for_loss=args.beta_for_loss
-        )
+        args.cf_loss_func = None
         if args.sampling_net:
             scheduler_sampling_net = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optim_sampling_net, mode="min", factor=0.5, patience=500, verbose=False
@@ -232,7 +230,7 @@ class Condenser:
                 loader_real=loader_real,
                 sample_fn=loader_syn.class_sample,
                 aug_fn=aug,
-                inner_loss_fn=match_loss if args.depth <= 5 else mutil_layer_match_loss,
+                inner_loss_fn=ppdd_loss,
                 optim_img=optim_img,
                 class_list=self.args.class_list,
                 timing_tracker=self.timing_tracker,
@@ -245,7 +243,7 @@ class Condenser:
                 calib_loss_total, calib_grad_mean = compute_calib_loss(
                     sample_fn=loader_syn.class_sample,
                     aug_fn=aug,
-                    inter_loss_fn=cailb_loss,
+                    inter_loss_fn=None,
                     optim_img=optim_img,
                     iter_calib=args.iter_calib,
                     class_list=self.args.class_list,
