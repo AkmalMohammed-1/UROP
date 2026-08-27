@@ -266,7 +266,7 @@ def load_resized_data(
 
 
 def get_plotter(args):
-    base_filename = f"{args.dataset}_ipc{args.ipc}_factor{args.factor}_{args.optimizer}_alpha{args.alpha_for_loss}_beta{args.beta_for_loss}_dis{args.dis_metrics}_freqs{args.num_freqs}_calib{args.iter_calib}"
+    base_filename = f"{args.dataset}_ipc{args.ipc}_factor{args.factor}_{args.optimizer}_alpha{getattr(args, 'alpha_for_loss', 0)}_beta{getattr(args, 'beta_for_loss', 0)}_dis{args.dis_metrics}_freqs{getattr(args, 'num_freqs', 0)}_calib{getattr(args, 'iter_calib', 0)}"
     optimizer_info = {
         "type": args.optimizer,
         "lr": (
