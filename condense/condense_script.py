@@ -10,6 +10,11 @@ def main_worker(args):
     aug, _ = diffaug(args)
     
     condenser = Condenser(args, nclass_list=args.class_list, nchannel=args.nch, hs=args.size, ws=args.size, device='cuda')
+    
+    if hasattr(args, 'use_wandb') and args.use_wandb and getattr(args, 'rank', 0) == 0:
+        import wandb
+        wandb.init(project="PPDD-CIFAR10", name=f"IPC_{args.ipc}", config=vars(args))
+
     for local_rank in range(args.local_world_size):
         if  args.local_rank == local_rank:
             condenser.load_condensed_data(loader_real, init_type=args.init,load_path=args.load_path)

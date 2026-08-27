@@ -40,7 +40,7 @@ def compute_match_loss(
             match_grad_mean += torch.norm(data_grad).item()
         timing_tracker.record("backward")
         
-        if hasattr(args, 'use_wandb') and args.use_wandb:
+        if hasattr(args, 'use_wandb') and args.use_wandb and getattr(args, 'rank', 0) == 0:
             import wandb
             wandb.log({
                 'loss/total': loss.item(),
