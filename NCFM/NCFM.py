@@ -12,15 +12,17 @@ def ppdd_loss(img_real, img_syn, label_syn, model, args):
         
     logits_syn, feat_syn = model(img_syn, return_features=True)
     
-    # 1. PULL: Feature-space MSE
-    loss_mse = F.mse_loss(feat_syn, feat_real.detach())
+    # 1. PULL: Feature-space MSE (match the feature means of the batches)
+    loss_mse = F.mse_loss(feat_syn.mean(dim=0), feat_real.detach().mean(dim=0))
     
     # 2. PULL: Semantic-space Calibration (Cross-Entropy)
+    # Cross entropy works per-sample, so no averaging needed before the loss
     loss_calib = F.cross_entropy(logits_syn, label_syn)
     
     # 3. PUSH: Divergence Loss (Reverse KL)
-    log_q = F.log_softmax(logits_syn, dim=1)
-    p = F.softmax(logits_real.detach(), dim=1)
+    # Average the predicted probabilities over the synthetic and real batches
+    log_q = F.log_softmax(logits_syn, dim=1).mean(dim=0, keepdim=True)
+    p = F.softmax(logits_real.detach(), dim=1).mean(dim=0, keepdim=True)
     loss_div = F.kl_div(log_q, p, reduction='batchmean')
     
     lambda_mse = getattr(args, 'lambda_mse', 1.0)
