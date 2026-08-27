@@ -57,13 +57,13 @@ condense:
   ipc: 10
   num_premodel: 20
   niter: 20000
-  iter_calib: 1 
-  calib_weight: 1
+  iter_calib: 0 
+  lambda_mse: 1.0
+  lambda_calib: 1.0
+  lambda_div: 0.5
+  use_wandb: True
   sampling_net: False
-  num_freqs: 4096
-  dis_metrics: "NCFM"
+  dis_metrics: "PPDD"
   factor: 2
-  alpha_for_loss: 0.5
-  beta_for_loss: 0.5
   decode_type: 'single' # choices=['single', 'multi', 'bound']
   teacher_model_epoch: 20
