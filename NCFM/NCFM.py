@@ -20,10 +20,17 @@ def ppdd_loss(img_real, img_syn, label_syn, model, args):
     loss_calib = F.cross_entropy(logits_syn, label_syn)
     
     # 3. PUSH: Divergence Loss (Reverse KL)
-    # Average the predicted probabilities over the synthetic and real batches
-    log_q = F.log_softmax(logits_syn, dim=1).mean(dim=0, keepdim=True)
-    p = F.softmax(logits_real.detach(), dim=1).mean(dim=0, keepdim=True)
-    loss_div = F.kl_div(log_q, p, reduction='batchmean')
+    # We want D_KL(q(y|x_s) || p(y|x_r))
+    # q is the posterior for each synthetic sample
+    q = F.softmax(logits_syn, dim=1)         # shape: (batch_syn, num_classes)
+    log_q = F.log_softmax(logits_syn, dim=1) # shape: (batch_syn, num_classes)
+    
+    # p is the average posterior over the real batch
+    p_real = F.softmax(logits_real.detach(), dim=1).mean(dim=0, keepdim=True) # shape: (1, num_classes)
+    log_p_real = torch.log(p_real + 1e-8)    # shape: (1, num_classes)
+    
+    # Compute KL divergence for each synthetic sample and average over the batch
+    loss_div = torch.sum(q * (log_q - log_p_real), dim=1).mean(dim=0)
     
     lambda_mse = getattr(args, 'lambda_mse', 1.0)
     lambda_calib = getattr(args, 'lambda_calib', 1.0)
