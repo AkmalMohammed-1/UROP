@@ -4,3 +4,8 @@ dataset/
 *.pyc
 pretrained_models
 dataset
+.venv/
+venv/
+__pycache__/
+*.pth.tar
+*.pt

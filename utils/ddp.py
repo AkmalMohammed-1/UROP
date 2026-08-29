@@ -7,17 +7,31 @@ from collections import OrderedDict
 
 
 def initialize_distribution_training(backend="nccl", init_method="env://"):
-    dist.init_process_group(
-        backend=backend, init_method=init_method, timeout=timedelta(seconds=3000)
-    )
+    if not dist.is_nccl_available() and backend == "nccl":
+        backend = "gloo"
+
+    if "LOCAL_RANK" not in os.environ:
+        os.environ["LOCAL_RANK"] = "0"
+        os.environ["RANK"] = "0"
+        os.environ["WORLD_SIZE"] = "1"
+        os.environ["MASTER_ADDR"] = "localhost"
+        os.environ["MASTER_PORT"] = "29500"
+
+    if not dist.is_initialized():
+        dist.init_process_group(
+            backend=backend, init_method=init_method, timeout=timedelta(seconds=3000)
+        )
     rank = dist.get_rank()
     world_size = dist.get_world_size()
     # Get local rank from environment variable
-    local_rank = int(os.environ["LOCAL_RANK"])
-    local_world_size = int(os.environ["WORLD_SIZE"])
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    local_world_size = int(os.environ.get("WORLD_SIZE", 1))
     # Set the current GPU for this process
-    torch.cuda.set_device(local_rank)
-    device = torch.device(f"cuda:{local_rank}")
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f"cuda:{local_rank}")
+    else:
+        device = torch.device("cpu")
     return rank, world_size, local_rank, local_world_size, device
 
 

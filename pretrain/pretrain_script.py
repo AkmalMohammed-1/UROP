@@ -56,8 +56,10 @@ def main_worker(args):
             args.logger,
             args.size,
         ).to(args.device)
-        model = model.to(args.device)
-        model = DDP(model, device_ids=[args.rank])
+        if dist.get_backend() == "nccl":
+            model = DDP(model, device_ids=[args.local_rank])
+        else:
+            model = DDP(model)
 
         # Save initial model state
         init_path = os.path.join(args.pretrain_dir, f"premodel{model_id}_init.pth.tar")

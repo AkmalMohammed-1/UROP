@@ -68,9 +68,12 @@ def evaluate_syn_data(args, model, train_loader, val_loader, logger=None):
     best_acc1, best_acc5 = 0, 0
     acc1, acc5 = 0, 0
     model = model.cuda()
-    model = torch.nn.parallel.DistributedDataParallel(
-        model, device_ids=[args.rank], output_device=args.rank
-    )
+    if dist.get_backend() == "nccl":
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[args.local_rank], output_device=args.local_rank
+        )
+    else:
+        model = torch.nn.parallel.DistributedDataParallel(model)
 
     if args.dsa:
         aug = DiffAug(strategy=args.dsa_strategy, batch=False)

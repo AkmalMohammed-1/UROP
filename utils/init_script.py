@@ -39,7 +39,7 @@ def init_script(args):
         args.load_path,
         args.factor,
         args.lr,
-        getattr(args, 'num_freqs', 0),
+        args.num_freqs,
     )
 
     set_random_seeds(args.seed)
@@ -73,9 +73,9 @@ def set_iteration_parameters(niter, debug):
 def set_Pretrain_Directory(pretrain_dir, dataset, depth):
 
     if dataset.lower() == "imagenet":
-        pretrain_dir = f"./{pretrain_dir}/{dataset}/ResNet-{depth}"
+        pretrain_dir = f"{pretrain_dir}/{dataset}/ResNet-{depth}"
     else:
-        pretrain_dir = f"./{pretrain_dir}/{dataset}"
+        pretrain_dir = f"{pretrain_dir}/{dataset}"
     return pretrain_dir
 
 

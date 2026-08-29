@@ -5,7 +5,8 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from utils.utils import update_feature_extractor
 from utils.ddp import gather_save_visualize, sync_distributed_metric
-from NCFM.NCFM import ppdd_loss
+from NCFM.NCFM import cailb_loss, mutil_layer_match_loss, CFLossFunc, match_loss
+# removed hppdd_loss import
 from NCFM.SampleNet import SampleNet
 from utils.experiment_tracker import TimingTracker, get_time
 from data.dataset import TensorDataset
@@ -200,20 +201,23 @@ class Condenser:
             loader_real, args.class_list, args.batch_real, args.device
         )
         loader_syn = AsyncLoader(self, args.class_list, 100000, args.device)
-        args.cf_loss_func = None
+        args.cf_loss_func = CFLossFunc(
+            alpha_for_loss=args.alpha_for_loss, beta_for_loss=args.beta_for_loss
+        )
         if args.sampling_net:
             scheduler_sampling_net = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optim_sampling_net, mode="min", factor=0.5, patience=500, verbose=False
+            optim_sampling_net, mode="min", factor=0.5, patience=2000, verbose=False
         )
         else:
             scheduler_sampling_net = None
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optim_img, mode="min", factor=0.5, patience=500, verbose=False
+            optim_img, mode="min", factor=0.5, patience=2000, verbose=False
         )
         gather_save_visualize(self, args)
         if args.local_rank == 0:
             pbar = tqdm(range(1, args.niter))
         for it in range(args.niter):
+            args.hppdd_iter = it
             model_init, model_final, model_interval = update_feature_extractor(
                 args, model_init, model_final, model_interval, a=0, b=1
             )
@@ -230,20 +234,22 @@ class Condenser:
                 loader_real=loader_real,
                 sample_fn=loader_syn.class_sample,
                 aug_fn=aug,
-                inner_loss_fn=ppdd_loss,
+                inner_loss_fn=match_loss if args.depth <= 5 else mutil_layer_match_loss,
                 optim_img=optim_img,
                 class_list=self.args.class_list,
                 timing_tracker=self.timing_tracker,
                 model_interval=model_interval,
                 data_grad=self.data.grad,
                 optim_sampling_net=optim_sampling_net,
-                sampling_net =sampling_net
+                sampling_net =sampling_net,
+                it=it
             )
+            # maybe_apply_relational(args, optim_img, model_interval)
             if args.iter_calib > 0:
                 calib_loss_total, calib_grad_mean = compute_calib_loss(
                     sample_fn=loader_syn.class_sample,
                     aug_fn=aug,
-                    inter_loss_fn=None,
+                    inter_loss_fn=cailb_loss,
                     optim_img=optim_img,
                     iter_calib=args.iter_calib,
                     class_list=self.args.class_list,

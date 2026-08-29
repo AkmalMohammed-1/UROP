@@ -1,5 +1,5 @@
 distibution_train:
-  backend: 'nccl' #  choices=['nccl', 'gloo', 'mpi', 'torch']
+  backend: 'gloo' #  choices=['nccl', 'gloo', 'mpi', 'torch']
   init_method: 'env://'
   workers: 8
 
@@ -57,13 +57,15 @@ condense:
   ipc: 10
   num_premodel: 20
   niter: 20000
-  iter_calib: 0 
-  lambda_mse: 1.0
-  lambda_calib: 1.0
-  lambda_div: 0.5
-  use_wandb: True
+  iter_calib: 1 
+  calib_weight: 1
   sampling_net: False
-  dis_metrics: "PPDD"
+  dis_metrics: "OT"
+  ot_type: "sinkhorn" # choices=['sinkhorn', 'debiased_sinkhorn', 'swd']
+  ot_epsilon: 0.05
+  ot_cost: "sqeuclidean" # choices=['sqeuclidean', 'cosine']
+  ot_scale: 1.0
+  ppdd_lambda_calib: 2.0
+  ppdd_lambda_div: 1.0
   factor: 2
   decode_type: 'single' # choices=['single', 'multi', 'bound']
-  teacher_model_epoch: 20

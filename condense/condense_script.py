@@ -10,11 +10,6 @@ def main_worker(args):
     aug, _ = diffaug(args)
     
     condenser = Condenser(args, nclass_list=args.class_list, nchannel=args.nch, hs=args.size, ws=args.size, device='cuda')
-    
-    if hasattr(args, 'use_wandb') and args.use_wandb and getattr(args, 'rank', 0) == 0:
-        import wandb
-        wandb.init(project="PPDD-CIFAR10", name=f"IPC_{args.ipc}", config=vars(args))
-
     for local_rank in range(args.local_world_size):
         if  args.local_rank == local_rank:
             condenser.load_condensed_data(loader_real, init_type=args.init,load_path=args.load_path)
@@ -22,11 +17,12 @@ def main_worker(args):
         dist.barrier()
 
     optim_img = get_optimizer(optimizer=args.optimizer, parameters=condenser.parameters(),lr=args.lr_img, mom_img=args.mom_img,weight_decay=args.weight_decay,logger=args.logger)
-    
-    # PPDD does not need a sampling net
-    sampling_net = None
-    optim_sampling_net = None
-    
+    if args.sampling_net:
+        sampling_net = SampleNet(feature_dim=2048).to(args.device)
+        optim_sampling_net = get_optimizer(optimizer= "sgd", parameters=sampling_net.parameters(),lr=args.lr_sampling_net, mom_img=args.mom_img,weight_decay=args.weight_decay,logger=args.logger)
+    else:
+        sampling_net = None
+        optim_sampling_net = None
     model_init,model_interval,model_final = get_feature_extractor(args)
     condenser.condense(args,plotter,loader_real,aug,optim_img,model_init,model_interval,model_final,sampling_net,optim_sampling_net)
 
@@ -47,7 +43,7 @@ if __name__ == '__main__':
     import argparse
     from argsprocessor.args import ArgsProcessor
     from condenser.Condenser import Condenser
-    # from NCFM.SampleNet import SampleNet
+    from NCFM.SampleNet import SampleNet
 
     parser = argparse.ArgumentParser(description='Configuration parser')
     parser.add_argument('--debug',dest='debug',action='store_true',help='When dataset is very large , you should get it')
@@ -59,6 +55,12 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', type=str, default = "0",required=True, help='GPUs to use, e.g., "0,1,2,3"') 
     parser.add_argument('-i', '--ipc', type=int, default=1,required=True, help='number of condensed data per class')
     parser.add_argument('--tf32', action='store_true',default=True,help='Enable TF32')
+    parser.add_argument('--dis_metrics', type=str, default='OT', help='Distance metric to use (e.g. OT, MMD, NCFM)')
+    parser.add_argument('--ot_type', type=str, default='sinkhorn', choices=['sinkhorn', 'debiased_sinkhorn', 'swd'], help='Type of Optimal Transport')
+    parser.add_argument('--ot_epsilon', type=float, default=0.05, help='Entropic regularization for Sinkhorn OT')
+    parser.add_argument('--ot_cost', type=str, default='sqeuclidean', choices=['sqeuclidean', 'cosine'], help='Ground cost function for OT')
+    parser.add_argument('--ot_scale', type=float, default=1.0, help='Scale factor for OT loss')
+    parser.add_argument('--mmd_type', type=str, default='linear', choices=['linear', 'rbf'], help='Type of MMD to compute')
     args = parser.parse_args()
     args_processor = ArgsProcessor(args.config_path)
 

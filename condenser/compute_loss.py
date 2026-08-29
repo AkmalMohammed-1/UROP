@@ -1,5 +1,6 @@
 import torch
 
+
 def compute_match_loss(
     args,
     loader_real,
@@ -12,7 +13,8 @@ def compute_match_loss(
     model_interval,
     data_grad,
     optim_sampling_net = None,
-    sampling_net =None
+    sampling_net =None,
+    it = 0
 ):
 
     loss_total = 0
@@ -23,35 +25,69 @@ def compute_match_loss(
 
         img, _ = loader_real.class_sample(c)
         timing_tracker.record("data")
-        img_syn, label_syn = sample_fn(c)
+        img_syn, _ = sample_fn(c)
 
         img_aug = aug_fn(torch.cat([img, img_syn]))
         timing_tracker.record("aug")
         n = img.shape[0]
 
-        loss, loss_mse, loss_calib, loss_div = inner_loss_fn(img_aug[:n], img_aug[n:], label_syn, model_interval, args)
+        loss = inner_loss_fn(img_aug[:n], img_aug[n:], model_interval,sampling_net,args,it)
         loss_total += loss.item()
         timing_tracker.record("loss")
 
         optim_img.zero_grad()
-        loss.backward()
-        optim_img.step()
+        if optim_sampling_net is not None:
+            optim_sampling_net.zero_grad()
+            loss.backward(retain_graph=True)
+            optim_img.step()
+            optim_img.zero_grad()
+            (-loss).backward()
+            optim_sampling_net.step()
+            optim_sampling_net.zero_grad()
+        else:
+            loss.backward()
+            optim_img.step()
         if data_grad is not None:
             match_grad_mean += torch.norm(data_grad).item()
         timing_tracker.record("backward")
-        
-        if hasattr(args, 'use_wandb') and args.use_wandb and getattr(args, 'rank', 0) == 0:
-            import wandb
-            wandb.log({
-                'loss/total': loss.item(),
-                'loss/mse': loss_mse.item(),
-                'loss/calib': loss_calib.item(),
-                'loss/div': loss_div.item(),
-            })
 
     return loss_total, match_grad_mean
 
-def compute_calib_loss(*args, **kwargs):
-    # PPDD combines calib loss into the main update, so this is unused.
-    return 0, 0
 
+def compute_calib_loss(
+    sample_fn,
+    aug_fn,
+    inter_loss_fn,
+    optim_img,
+    iter_calib,
+    class_list,
+    timing_tracker,
+    model_final,
+    calib_weight,
+    data_grad,
+):
+
+    calib_loss_total = 0
+    calib_grad_norm = 0
+    for i in range(0, iter_calib):
+        for c in class_list:
+            timing_tracker.start_step()
+
+            img_syn, label_syn = sample_fn(c)
+            timing_tracker.record("data")
+
+            img_aug = aug_fn(torch.cat([img_syn]))
+            timing_tracker.record("aug")
+
+            loss = calib_weight * inter_loss_fn(img_aug, label_syn, model_final)
+            calib_loss_total += loss.item()
+            timing_tracker.record("loss")
+
+            optim_img.zero_grad()
+            loss.backward()
+            if data_grad is not None:
+                calib_grad_norm = torch.norm(data_grad).item()
+            optim_img.step()
+            timing_tracker.record("backward")
+
+    return calib_loss_total, calib_grad_norm
