@@ -60,6 +60,7 @@ condense:
   iter_calib: 1 
   calib_weight: 1
   sampling_net: False
+  num_freqs: 4096
   dis_metrics: "OT"
   ot_type: "sinkhorn" # choices=['sinkhorn', 'debiased_sinkhorn', 'swd']
   ot_epsilon: 0.05

@@ -21,25 +21,29 @@ def init_script(args):
         initialize_distribution_training(args.backend, args.init_method)
     )
 
-    args.it_save, args.it_log = set_iteration_parameters(args.niter, args.debug)
+    args.it_save, args.it_log = set_iteration_parameters(
+        getattr(args, "niter", 20000), getattr(args, "debug", False)
+    )
 
     args.pretrain_dir = set_Pretrain_Directory(
-        args.pretrain_dir, args.dataset, args.depth
+        getattr(args, "pretrain_dir", "../pretrained_models"),
+        getattr(args, "dataset", "cifar10"),
+        getattr(args, "depth", 3),
     )
 
     args.exp_name, args.save_dir, args.lr_img = set_experiment_name_and_save_Dir(
-        args.run_mode,
-        args.dataset,
-        args.pretrain_dir,
-        args.save_dir,
-        args.lr_img,
-        args.lr_scale_adam,
-        args.ipc,
-        args.optimizer,
-        args.load_path,
-        args.factor,
-        args.lr,
-        args.num_freqs,
+        getattr(args, "run_mode", "Condense"),
+        getattr(args, "dataset", "cifar10"),
+        getattr(args, "pretrain_dir", "../pretrained_models"),
+        getattr(args, "save_dir", "../results/condense"),
+        getattr(args, "lr_img", 0.01),
+        getattr(args, "lr_scale_adam", 0.1),
+        getattr(args, "ipc", 10),
+        getattr(args, "optimizer", "adamw"),
+        getattr(args, "load_path", None),
+        getattr(args, "factor", 2),
+        getattr(args, "lr", 0.01),
+        getattr(args, "num_freqs", 0),
     )
 
     set_random_seeds(args.seed)
