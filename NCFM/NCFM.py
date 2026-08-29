@@ -10,23 +10,26 @@ def ppdd_loss(img_real, img_syn, label_syn, model, args):
     Per-class call: img_real and img_syn are both from the SAME class c.
 
     Pull forces (Eq 5):
-      L_MSE:   MSE between class-conditional feature means (Eq 3)
+      L_MSE:   MSE between per-sample features and the real feature mean (Eq 3)
       L_calib: Cross-entropy for label consistency (Eq 4)
 
     Push force (Eq 6):
       L_div:   Reverse KL  D_KL(q(y|x_s) || p(y|x_r))  per-sample paired
     """
     # ── Forward passes ─────────────────────────────────────────────────────
+    # We do NOT use model.eval() because it disrupts instance normalization.
     with torch.no_grad():
         logits_real, feat_real = model(img_real, return_features=True)
 
     logits_syn, feat_syn = model(img_syn, return_features=True)
 
     # ── 1. PULL – Feature MSE (Eq 3) ──────────────────────────────────────
-    # Match class-conditional feature means
-    mean_real = feat_real.detach().mean(dim=0)
-    mean_syn = feat_syn.mean(dim=0)
-    loss_mse = F.mse_loss(mean_syn, mean_real)
+    # IMPORTANT: We must match EVERY synthetic feature to the real mean.
+    # This implicitly penalizes the variance of the synthetic features.
+    # Matching mean-to-mean without normalizing the features causes the 
+    # synthetic variance to explode due to the push loss!
+    real_feat_mean = feat_real.detach().mean(dim=0, keepdim=True)
+    loss_mse = F.mse_loss(feat_syn, real_feat_mean.expand_as(feat_syn))
 
     # ── 2. PULL – Semantic calibration (Eq 4) ─────────────────────────────
     loss_calib = F.cross_entropy(logits_syn, label_syn)
@@ -34,7 +37,6 @@ def ppdd_loss(img_real, img_syn, label_syn, model, args):
     # ── 3. PUSH – Reverse KL divergence (Eq 6) ────────────────────────────
     # Per-sample pairing: subsample real to match synthetic batch size,
     # then compute KL(q_i || p_i) for each pair and average.
-    # This matches the author's reference implementation exactly.
     loss_div = _l_div(logits_real.detach(), logits_syn)
 
     # ── Combine (Eq 2): L_PPDD = L_align - λ_div * L_div ─────────────────
@@ -54,7 +56,6 @@ def _l_div(logits_real, logits_syn):
 
     Subsamples real to match synthetic batch size so every synthetic
     sample is paired with a distinct real sample.
-    Matches meancov_loss.py:l_div and hppdd_loss_C.py:l_div exactly.
     """
     N_s = logits_syn.shape[0]
     N_r = logits_real.shape[0]
