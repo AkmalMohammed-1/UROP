@@ -69,4 +69,6 @@ condense:
   ppdd_lambda_calib: 2.0
   ppdd_lambda_div: 1.0
   factor: 2
+  alpha_for_loss: 0.5
+  beta_for_loss: 0.5
   decode_type: 'single' # choices=['single', 'multi', 'bound']

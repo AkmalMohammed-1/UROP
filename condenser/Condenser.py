@@ -53,12 +53,12 @@ class Condenser:
         self.factor = max(1, args.factor)
         self.decode_type = args.decode_type
         self.resize = nn.Upsample(size=self.size, mode="bilinear")
-        if dist.get_rank() == 0:
+        if not dist.is_initialized() or dist.get_rank() == 0:
             self.logger(f"Factor: {self.factor} ({self.decode_type})")
 
     def load_condensed_data(self, loader, init_type="noise", load_path=None):
         if init_type == "random":
-            if dist.get_rank() == 0:
+            if not dist.is_initialized() or dist.get_rank() == 0:
                 self.logger(
                     "===================Random initialize condensed==================="
                 )
@@ -70,7 +70,7 @@ class Condenser:
                     * (self.nclass_list.index(c) + 1)
                 ] = img.data.to(self.device)
         elif init_type == "mix":
-            if dist.get_rank() == 0:
+            if not dist.is_initialized() or dist.get_rank() == 0:
                 self.logger(
                     "===================Mixed initialize condensed==================="
                 )
@@ -103,7 +103,7 @@ class Condenser:
                     h_loc += h_r
 
         elif init_type == "noise":
-            if dist.get_rank() == 0:
+            if not dist.is_initialized() or dist.get_rank() == 0:
                 self.logger(
                     "===================Noise initialize condensed dataset==================="
                 )
@@ -113,7 +113,7 @@ class Condenser:
                 raise ValueError(
                     "===================Please provide the path of the initialization data==================="
                 )
-            if dist.get_rank() == 0:
+            if not dist.is_initialized() or dist.get_rank() == 0:
                 self.logger(
                     "==================designed path initialize condense dataset ==================="
                 )
@@ -202,9 +202,9 @@ class Condenser:
         )
         loader_syn = AsyncLoader(self, args.class_list, 100000, args.device)
         args.cf_loss_func = CFLossFunc(
-            alpha_for_loss=args.alpha_for_loss, beta_for_loss=args.beta_for_loss
+            alpha_for_loss=getattr(args, 'alpha_for_loss', 0.5), beta_for_loss=getattr(args, 'beta_for_loss', 0.5)
         )
-        if args.sampling_net:
+        if getattr(args, 'sampling_net', False):
             scheduler_sampling_net = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optim_sampling_net, mode="min", factor=0.5, patience=2000, verbose=False
         )
