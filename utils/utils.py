@@ -266,23 +266,36 @@ def load_resized_data(
 
 
 def get_plotter(args):
-    base_filename = f"{args.dataset}_ipc{args.ipc}_factor{args.factor}_{args.optimizer}_alpha{args.alpha_for_loss}_beta{args.beta_for_loss}_dis{args.dis_metrics}_freqs{args.num_freqs}_calib{args.iter_calib}"
+    dataset = getattr(args, "dataset", "cifar10")
+    ipc = getattr(args, "ipc", 10)
+    factor = getattr(args, "factor", 2)
+    optimizer = getattr(args, "optimizer", "adamw")
+    alpha = getattr(args, "alpha_for_loss", 0.5)
+    beta = getattr(args, "beta_for_loss", 0.5)
+    dis_metrics = getattr(args, "dis_metrics", "OT")
+    num_freqs = getattr(args, "num_freqs", 0)
+    iter_calib = getattr(args, "iter_calib", 1)
+    lr_img = getattr(args, "lr_img", 0.01)
+    lr_scale_adam = getattr(args, "lr_scale_adam", 0.1)
+    weight_decay = getattr(args, "weight_decay", 0.0)
+
+    base_filename = f"{dataset}_ipc{ipc}_factor{factor}_{optimizer}_alpha{alpha}_beta{beta}_dis{dis_metrics}_freqs{num_freqs}_calib{iter_calib}"
     optimizer_info = {
-        "type": args.optimizer,
+        "type": optimizer,
         "lr": (
-            args.lr_img * args.lr_scale_adam
-            if args.optimizer.lower() in ["adam", "adamw"]
-            else args.lr_img
+            lr_img * lr_scale_adam
+            if optimizer.lower() in ["adam", "adamw"]
+            else lr_img
         ),
-        "weight_decay": args.weight_decay if args.optimizer.lower() == "adamw" else 0.0,
+        "weight_decay": weight_decay if optimizer.lower() == "adamw" else 0.0,
     }
 
     plotter = LossPlotter(
-        save_path=args.save_dir,
+        save_path=getattr(args, "save_dir", "../results/condense"),
         filename_pattern=base_filename,
-        dataset=args.dataset,
-        ipc=args.ipc,
-        dis_metrics=args.dis_metrics,
+        dataset=dataset,
+        ipc=ipc,
+        dis_metrics=dis_metrics,
         optimizer_info=optimizer_info,
     )
     return plotter
