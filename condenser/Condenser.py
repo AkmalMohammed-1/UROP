@@ -206,12 +206,12 @@ class Condenser:
         )
         if getattr(args, 'sampling_net', False):
             scheduler_sampling_net = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optim_sampling_net, mode="min", factor=0.5, patience=2000, verbose=False
-        )
+                optim_sampling_net, mode="min", factor=0.5, patience=2000
+            )
         else:
             scheduler_sampling_net = None
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optim_img, mode="min", factor=0.5, patience=2000, verbose=False
+            optim_img, mode="min", factor=0.5, patience=2000
         )
         gather_save_visualize(self, args)
         if args.local_rank == 0:
