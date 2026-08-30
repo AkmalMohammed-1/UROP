@@ -93,35 +93,75 @@ def define_model(dataset, norm_type, net_type, nch, depth, width, nclass, logger
 def load_resized_data(
     dataset, data_dir, size=None, nclass=None, load_memory=False, seed=0
 ):
+    os.makedirs(data_dir, exist_ok=True)
+    # Ensure Rank 0 downloads dataset first in multi-process/DDP setups to prevent race conditions & file corruption
+    if dist.is_initialized():
+        if dist.get_rank() == 0:
+            if dataset == "cifar10":
+                datasets.CIFAR10(data_dir, download=True, train=True)
+                datasets.CIFAR10(data_dir, download=True, train=False)
+            elif dataset == "cifar100":
+                datasets.CIFAR100(data_dir, download=True, train=True)
+                datasets.CIFAR100(data_dir, download=True, train=False)
+            elif dataset == "svhn":
+                datasets.SVHN(os.path.join(data_dir, "SVHN"), download=True, split="train")
+                datasets.SVHN(os.path.join(data_dir, "SVHN"), download=True, split="test")
+            elif dataset == "mnist":
+                datasets.MNIST(data_dir, download=True, train=True)
+                datasets.MNIST(data_dir, download=True, train=False)
+            elif dataset == "fashion":
+                datasets.FashionMNIST(data_dir, download=True, train=True)
+                datasets.FashionMNIST(data_dir, download=True, train=False)
+        dist.barrier()
 
     normalize = transforms.Normalize(mean=MEANS[dataset], std=STDS[dataset])
     with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
         if dataset == "cifar10":
-            train_dataset = datasets.CIFAR10(
-                data_dir, download=True, train=True, transform=transforms.ToTensor()
-            )
+            try:
+                train_dataset = datasets.CIFAR10(
+                    data_dir, download=False, train=True, transform=transforms.ToTensor()
+                )
+            except Exception:
+                train_dataset = datasets.CIFAR10(
+                    data_dir, download=True, train=True, transform=transforms.ToTensor()
+                )
             transform_test = (
                 transforms.Compose([transforms.ToTensor(), normalize])
                 if normalize
                 else transforms.ToTensor()
             )
-            val_dataset = datasets.CIFAR10(
-                data_dir, train=False, transform=transform_test
-            )
+            try:
+                val_dataset = datasets.CIFAR10(
+                    data_dir, download=False, train=False, transform=transform_test
+                )
+            except Exception:
+                val_dataset = datasets.CIFAR10(
+                    data_dir, download=True, train=False, transform=transform_test
+                )
             train_dataset.nclass = 10
 
         elif dataset == "cifar100":
-            train_dataset = datasets.CIFAR100(
-                data_dir, download=True, train=True, transform=transforms.ToTensor()
-            )
+            try:
+                train_dataset = datasets.CIFAR100(
+                    data_dir, download=False, train=True, transform=transforms.ToTensor()
+                )
+            except Exception:
+                train_dataset = datasets.CIFAR100(
+                    data_dir, download=True, train=True, transform=transforms.ToTensor()
+                )
             transform_test = (
                 transforms.Compose([transforms.ToTensor(), normalize])
                 if normalize
                 else transforms.ToTensor()
             )
-            val_dataset = datasets.CIFAR100(
-                data_dir, train=False, transform=transform_test
-            )
+            try:
+                val_dataset = datasets.CIFAR100(
+                    data_dir, download=False, train=False, transform=transform_test
+                )
+            except Exception:
+                val_dataset = datasets.CIFAR100(
+                    data_dir, download=True, train=False, transform=transform_test
+                )
             train_dataset.nclass = 100
 
         elif dataset == "svhn":
